@@ -35,7 +35,7 @@ def dump_dataset_json(train_path: str, label_path: str, dump_file: str):
 
     assert len(dataset['text']) == len(dataset['label']), f"Length different!"
     dataset_df = pd.DataFrame(dataset, columns=dataset.keys())
-    dataset_df.to_json(dump_file)
+    dataset_df.to_csv(dump_file, index=False)
 
     return True
 
