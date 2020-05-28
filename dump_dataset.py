@@ -45,7 +45,7 @@ def params_loader():
                                         f"\"text\" and \"label\" columns")
     parser.add_argument("--dataset_dir", type=str, help=f"Path to dataset")
     parser.add_argument("--dump_file", type=str,
-                        help=f"Path/name.json of dump dataset")
+                        help=f"Path/name.csv of dump dataset")
     args, _ = parser.parse_known_args()
     params = {k: v for k, v in vars(args).items() if v is not None}
 
