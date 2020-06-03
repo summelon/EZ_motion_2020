@@ -31,7 +31,7 @@ def dump_dataset_json(train_path: str, label_path: str, dump_file: str):
         dataset['text'].append(
                 concat_text_reply(corpus.text[i], corpus.reply[i]))
         dataset['label'].append(
-                [1+label_list.index(cat) for cat in corpus.categories[i]])
+                [label_list.index(cat) for cat in corpus.categories[i]])
 
     assert len(dataset['text']) == len(dataset['label']), f"Length different!"
     dataset_df = pd.DataFrame(dataset, columns=dataset.keys())
