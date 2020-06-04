@@ -1,6 +1,7 @@
 # EZ_motion
 
-# Python Scripts
-- `dump_dataset.py`
-    - Dump tabularize training dataset include "text"(combined "text" & "reply") and "label"(sparse class model) columns
-    - CLI: run as e.g. python dump_dataset.py --dataset_dir ./emotion_gif/ --dump_file ./train_ds.json
+- This branch is a draft for whole flow testing.
+- Put your unzipped dataset in `./dataset/emotion_gif/`
+- Create a folder `./submit` and `dev.json` will dump there
+- Run `python3 train.py` directly.
+- `dev.json` will be dumped automatically after training
