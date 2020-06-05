@@ -1,5 +1,7 @@
+import random
 import torchtext
 import pandas as pd
+import numpy as np
 
 
 def create_dataloader(data_pt, lbl_names):
@@ -12,31 +14,36 @@ def create_dataloader(data_pt, lbl_names):
     LABELS = torchtext.data.Field(
             preprocessing=categorical, sequential=False, use_vocab=False)
 
-    # FIXME check what is the header, True will lose one row?
+    # NOTE skip_header will miss the first row, so disable here
     # FIXME concatenate reply into text
-    train_ds = torchtext.data.TabularDataset(
+    dataset = torchtext.data.TabularDataset(
             path=data_pt, format='json', skip_header=False,
             fields={'text': ('text', TEXT), 'categories': ('label', LABELS)})
 
-    # FIXME: batch_size_fn is similar to collate_fn in Dataloader
+    # Ref: https://pytorch.org/text/data.html#torchtext.data.Dataset.split
+    # FIXME: - enable stratified for spliting dataset balancely
+    # NOTE:  - set fixed random_state for fixed set of train & val dataset
+    random.seed(66)
+    (train_ds, val_ds) = dataset.split(
+            split_ratio=0.8, stratified=False, random_state=random.getstate())
+
     # NOTE: shuffle is True default
-    train_iter = torchtext.data.BucketIterator(
-            dataset=train_ds, batch_size=32,
+    train_iter, val_iter = torchtext.data.BucketIterator.splits(
+            datasets=(train_ds, val_ds), batch_sizes=(32, 32),
             sort_key=lambda x: len(x.text))
 
     TEXT.build_vocab(train_ds)
     # Is building vocabulary for labels necessary here?
     # LABELS.build_vocab(train_ds)
 
-    return train_ds, train_iter
+    return train_ds, train_iter, val_iter
 
 
 def main():
-    DATA_PATH = "../dataset/emotion_gif/train_gold.json"
-    LABEL_PATH = "../dataset/emotion_gif/categories.json"
+    DATA_PATH = "./dataset/emotion_gif/train_gold.json"
+    LABEL_PATH = "./dataset/emotion_gif/categories.json"
     label_names = pd.read_json(LABEL_PATH)[0].to_list()
-    dataset, dataloader = create_dataloader(DATA_PATH, label_names)
-    print(dataset)
+    train_ds, train_dl, val_dl = create_dataloader(DATA_PATH, label_names)
 
 
 if __name__ == "__main__":

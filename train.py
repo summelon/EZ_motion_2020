@@ -9,34 +9,66 @@ import submission
 import data_preprocess.data_preprocess as preprocess
 
 
-def model_train(model, device, data_ld, optmzr, crtrn):
-    def cal_acc(pred, label):
+def model_train(model, device, t_dl, v_dl, optmzr, crtrn):
+    def cal_acc():
         pass
-    NUM_CLS = 43
     model.to(device)
-    train_loss, counter = 0, 0
+    train_loss, train_correct = 0, 0
+    e_counter, gt_counter = 0, 0
 
-    # pred_onehot = torch.tensor((BS, NUM_CLS), requires_grad=True, device=device, dtype=torch.float32)
-    # pred_onehot = torch.Tensor(BS, NUM_CLS).to(device)
-    pbar = tqdm.tqdm(data_ld)
-    for batch in pbar:
-        counter += 1
+    t_pbar = tqdm.tqdm(t_dl)
+    for batch in t_pbar:
+        model.train()
         optmzr.zero_grad()
         text = batch.text.to(device)
-        label = batch.label.type(torch.FloatTensor).to(device)
-        output = model(text)
+        label_oh = batch.label.type(torch.FloatTensor).to(device)
+        output_logits = model(text)
 
         # FIXME use number of ground truth as additional info
-        # preds_idx = torch.argsort(output, dim=1)[:, -6:]
-        # pred_onehot.zero_()
-        # pred_onehot.scatter_(1, preds_idx, 1)
-
-        loss = crtrn(output, label)
+        loss = crtrn(output_logits, label_oh)
         loss.backward()
         optmzr.step()
-        train_loss += loss.item()
-        pbar.set_postfix(loss=f'{train_loss/counter:.6f}')
 
+        label_idx = [torch.nonzero(l, as_tuple=False) for l in label_oh]
+        output_idx = torch.argsort(output_logits, dim=1)[:, -6:]
+        for l, o in zip(label_idx, output_idx):
+            train_correct += sum([1 for elem in o if elem in l])
+            gt_counter += l.nelement()
+
+        e_counter += 1
+        train_loss += loss.item()
+        tot_loss = train_loss / e_counter
+        tot_acc = train_correct / gt_counter
+        t_pbar.set_postfix(loss=f"{tot_loss:.6f}",
+                           acc=f"{tot_acc:.2%}")
+
+    # Validation ------------------------------------------------------
+    val_loss, val_correct = 0, 0
+    e_counter, gt_counter = 0, 0
+
+    v_pbar = tqdm.tqdm(v_dl)
+    for batch in v_pbar:
+        model.eval()
+        text = batch.text.to(device)
+        label_oh = batch.label.type(torch.FloatTensor).to(device)
+
+        with torch.no_grad():
+            output_logits = model(text)
+            # FIXME use number of ground truth as additional info
+            loss = crtrn(output_logits, label_oh)
+
+        label_idx = [torch.nonzero(l, as_tuple=False) for l in label_oh]
+        output_idx = torch.argsort(output_logits, dim=1)[:, -6:]
+        for l, o in zip(label_idx, output_idx):
+            val_correct += sum([1 for elem in o if elem in l])
+            gt_counter += l.nelement()
+
+        e_counter += 1
+        val_loss += loss.item()
+        tot_loss = val_loss / e_counter
+        tot_acc = val_correct / gt_counter
+        v_pbar.set_postfix(loss=f"{tot_loss:.6f}",
+                           acc=f"{tot_acc:.2%}")
     return model
 
 
@@ -47,9 +79,10 @@ def main():
     DATA_PATH = "./dataset/emotion_gif/train_gold.json"
     LABEL_PATH = "./dataset/emotion_gif/categories.json"
     label_names = pd.read_json(LABEL_PATH)[0].to_list()
-    dataset, dataloader = preprocess.create_dataloader(DATA_PATH, label_names)
+    train_ds, train_dl, val_dl = preprocess.create_dataloader(
+                                    DATA_PATH, label_names)
 
-    VOCAB_SIZE = len(dataset.fields['text'].vocab)
+    VOCAB_SIZE = len(train_ds.fields['text'].vocab)
     # EMBED_DIM = 32
     # model = TextSentiment(VOCAB_SIZE, EMBED_DIM, NUM_CLS).to(device)
     model = model_zoo.SimpleBiLSTMBaseline(
@@ -58,11 +91,13 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
     criterion = torch.nn.BCEWithLogitsLoss().to(device)
 
-    model = model_train(model, device, dataloader, optimizer, criterion)
+    for epoch in range(2):
+        model = model_train(
+                model, device, train_dl, val_dl, optimizer, criterion)
 
     TEST_PATH = "./dataset/emotion_gif/dev_unlabeled.json"
     SUBMISSION_PATH = "./submit/dev.json"
-    test_ds = submission.create_dataloader(TEST_PATH, dataset)
+    test_ds = submission.create_dataloader(TEST_PATH, train_ds)
 
     predictions = submission.model_pred(model, device, test_ds, label_names)
     submission.dump_submission(predictions, TEST_PATH, SUBMISSION_PATH)
