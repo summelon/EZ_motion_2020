@@ -1,3 +1,4 @@
+import copy
 import tqdm
 import torch
 import torchtext
@@ -37,10 +38,8 @@ def model_train(model, device, t_dl, v_dl, optmzr, crtrn):
 
         e_counter += 1
         train_loss += loss.item()
-        tot_loss = train_loss / e_counter
-        tot_acc = train_correct / gt_counter
-        t_pbar.set_postfix(loss=f"{tot_loss:.6f}",
-                           acc=f"{tot_acc:.2%}")
+        t_pbar.set_postfix(loss=f"{train_loss/e_counter:.6f}",
+                           acc=f"{train_correct/gt_counter:.2%}")
 
     # Validation ------------------------------------------------------
     val_loss, val_correct = 0, 0
@@ -65,11 +64,11 @@ def model_train(model, device, t_dl, v_dl, optmzr, crtrn):
 
         e_counter += 1
         val_loss += loss.item()
-        tot_loss = val_loss / e_counter
+        v_pbar.set_postfix(loss=f"{val_loss/e_counter:.6f}",
+                           acc=f"{val_correct/gt_counter:.2%}")
         tot_acc = val_correct / gt_counter
-        v_pbar.set_postfix(loss=f"{tot_loss:.6f}",
-                           acc=f"{tot_acc:.2%}")
-    return model
+
+    return model, tot_acc
 
 
 def main():
@@ -88,12 +87,26 @@ def main():
     model = model_zoo.SimpleBiLSTMBaseline(
             hidden_dim=500, emb_dim=500, vocab_size=VOCAB_SIZE)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     criterion = torch.nn.BCEWithLogitsLoss().to(device)
 
-    for epoch in range(2):
-        model = model_train(
+    best_acc, es_counter = 0, 0
+    for epoch in range(1, 100):
+        print(f"\nThis is No.{epoch}--------------------------------")
+        print(es_counter)
+        model, accuracy = model_train(
                 model, device, train_dl, val_dl, optimizer, criterion)
+        if best_acc < accuracy:
+            es_counter = 0
+            best_acc = accuracy
+            best_model_wts = copy.deepcopy(model.state_dict())
+        else:
+            es_counter += 1
+
+        model.load_state_dict(best_model_wts)
+        if es_counter > 7:
+            break
+    print(f"Best validation accuracy is {best_acc:.2%}")
 
     TEST_PATH = "./dataset/emotion_gif/dev_unlabeled.json"
     SUBMISSION_PATH = "./submit/dev.json"

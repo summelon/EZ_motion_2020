@@ -1,7 +1,7 @@
+import nltk
 import random
 import torchtext
 import pandas as pd
-import numpy as np
 
 
 def create_dataloader(data_pt, lbl_names):
@@ -10,7 +10,10 @@ def create_dataloader(data_pt, lbl_names):
         label = [1 if cat in gt else 0 for cat in lbl_names]
         return label
 
-    TEXT = torchtext.data.Field()
+    tknz_func = nltk.TweetTokenizer().tokenize
+
+    # TODO
+    TEXT = torchtext.data.Field(tokenize=tknz_func)
     LABELS = torchtext.data.Field(
             preprocessing=categorical, sequential=False, use_vocab=False)
 
@@ -29,7 +32,7 @@ def create_dataloader(data_pt, lbl_names):
 
     # NOTE: shuffle is True default
     train_iter, val_iter = torchtext.data.BucketIterator.splits(
-            datasets=(train_ds, val_ds), batch_sizes=(32, 32),
+            datasets=(train_ds, val_ds), batch_sizes=(64, 64),
             sort_key=lambda x: len(x.text))
 
     TEXT.build_vocab(train_ds)
