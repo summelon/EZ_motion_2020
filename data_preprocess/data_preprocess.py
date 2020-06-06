@@ -2,13 +2,21 @@ import nltk
 import random
 import torchtext
 import pandas as pd
+import numpy as np
 
 
 def create_dataloader(data_pt, lbl_names):
-    def categorical(gt):
-        # Convert laebl to multi-one-hot
-        label = tuple([1 if cat in gt else 0 for cat in lbl_names])
+    def lst2tp(gt):
+        # label = tuple([1 if cat in gt else 0 for cat in lbl_names])
+        label = tuple([lbl_names.index(cat) for cat in gt])
         return label
+
+    def categorical(batch, vocab):
+        # Convert laebl to multi-one-hot
+        categorical_batch = np.zeros((len(batch), len(lbl_names)))
+        for idx, row in enumerate(batch):
+            categorical_batch[idx, row] = 1
+        return categorical_batch
 
     tknz_func = nltk.TweetTokenizer().tokenize
     stopwords = nltk.corpus.stopwords.words('english')
@@ -16,7 +24,8 @@ def create_dataloader(data_pt, lbl_names):
     TEXT = torchtext.data.Field(
             tokenize=tknz_func, stop_words=stopwords, lower=True)
     LABELS = torchtext.data.Field(
-            preprocessing=categorical, sequential=False, use_vocab=False)
+            preprocessing=lst2tp, sequential=False, use_vocab=False,
+            postprocessing=categorical)
 
     # NOTE skip_header will miss the first row, so disable here
     # FIXME concatenate reply into text
