@@ -7,13 +7,14 @@ import pandas as pd
 def create_dataloader(data_pt, lbl_names):
     def categorical(gt):
         # Convert laebl to multi-one-hot
-        label = [1 if cat in gt else 0 for cat in lbl_names]
+        label = tuple([1 if cat in gt else 0 for cat in lbl_names])
         return label
 
     tknz_func = nltk.TweetTokenizer().tokenize
+    stopwords = nltk.corpus.stopwords.words('english')
 
-    # TODO
-    TEXT = torchtext.data.Field(tokenize=tknz_func)
+    TEXT = torchtext.data.Field(
+            tokenize=tknz_func, stop_words=stopwords, lower=True)
     LABELS = torchtext.data.Field(
             preprocessing=categorical, sequential=False, use_vocab=False)
 
@@ -28,7 +29,7 @@ def create_dataloader(data_pt, lbl_names):
     # NOTE:  - set fixed random_state for fixed set of train & val dataset
     random.seed(66)
     (train_ds, val_ds) = dataset.split(
-            split_ratio=0.8, stratified=False, random_state=random.getstate())
+            split_ratio=0.8, stratified=True, random_state=random.getstate())
 
     # NOTE: shuffle is True default
     train_iter, val_iter = torchtext.data.BucketIterator.splits(

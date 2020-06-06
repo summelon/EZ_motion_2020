@@ -92,7 +92,7 @@ def main():
 
     best_acc, es_counter = 0, 0
     for epoch in range(1, 100):
-        print(f"\nThis is No.{epoch}--------------------------------")
+        print(f"\nThis is No.{epoch} epochs--------------------------------")
         print(es_counter)
         model, accuracy = model_train(
                 model, device, train_dl, val_dl, optimizer, criterion)
