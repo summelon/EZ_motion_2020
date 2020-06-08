@@ -1,20 +1,23 @@
 import tqdm
 import torch
+import nltk
 import torchtext
 import pandas as pd
 
 
-def create_dataloader(data_pt, vocab_src):
-    TEXT = torchtext.data.Field()
+def create_dataloader(data_pt, vocab_src, emb_dim):
+    tknz_func = nltk.TweetTokenizer().tokenize
+    TEXT = torchtext.data.Field(tokenize=tknz_func, lower=True)
 
     test_ds = torchtext.data.TabularDataset(
             path=data_pt, format='json', skip_header=False,
             fields={'text': ('text', TEXT)})
 
     test_iter = torchtext.data.BucketIterator(
-            dataset=test_ds, batch_size=1, sort_key=lambda x: len(x.text))
+            dataset=test_ds, batch_size=64, sort_key=lambda x: len(x.text))
 
-    TEXT.build_vocab(vocab_src)
+    TEXT.build_vocab(vocab_src, vectors=f"glove.twitter.27B.{emb_dim}d",
+                     unk_init=torch.Tensor.normal_)
 
     return test_iter
 
